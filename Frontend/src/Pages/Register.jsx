@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState  } from 'react'
 import api from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 export default function Register() {
     const [register, setRegister] = useState({
@@ -7,17 +8,23 @@ export default function Register() {
         email: "",
         password: ""
     })
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             const response = await api.post("/auth/register", register);
-              setRegister({
+            if(response.data.success){
+setRegister({
                 name: "",
                 email: "",
                 password: ""
             });
             alert(`Hello ,${register.name} Your Account Has been Created`)
+
+            navigate("/login")
+            }
+              
           
 
         } catch (err) {
@@ -48,7 +55,7 @@ export default function Register() {
                             <label className="field-label">Name </label>
                             <input className="field-input" type="name" name="name" value={register.name} onChange={handleChange} placeholder="enter your name" required />
                         </div>
-                        //
+                    
                         <div className="field-group">
                             <label className="field-label">Email Address</label>
                             <input className="field-input" type="email" name="email" value={register.email} onChange={handleChange} placeholder="you@example.com" required />

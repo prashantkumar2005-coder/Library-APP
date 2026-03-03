@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import api from '../../services/api'
+import Navbar from './Navbar'
 
 export const Home = () => {
     const [store, setStore] = useState([])
@@ -22,7 +23,10 @@ export const Home = () => {
     }
 
     return (
+    <div>
+        < Navbar />
         <div className="store-wrapper">
+            
             <h1 className="store-heading">📚 Book Store</h1>
             <div className="store-grid">
                 {store && store.map((book) => (
@@ -37,6 +41,7 @@ export const Home = () => {
                     </div>
                 ))}
             </div>
+        </div>
         </div>
     )
 }

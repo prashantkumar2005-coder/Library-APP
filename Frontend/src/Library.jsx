@@ -1,164 +1,216 @@
-import React, { useEffect } from 'react'
-import "./Library.css";
-import { useState } from 'react'
-import api from '../services/api'
+import React, { useEffect, useState } from "react";
+import api from "../services/api";
 
 export default function Library() {
+  const [books, setBooks] = useState([]);
+  const [edit, setEdit] = useState(null);
 
-    // Stores the list of all books fetched from the server
-    const [books, setBooks] = useState([])
+  const [formData, setFormData] = useState({
+    title: "",
+    author: "",
+    price: "",
+  });
 
-    // Stores the ID of the book currently being edited (null means we're in "add" mode)
-    const [edit, setEdit] = useState(null)
+  // Fetch books on load
+  useEffect(() => {
+    fetchBooks();
+  }, []);
 
-    // Stores the current values of the form inputs (title, author, price)
-    const [formData, setFormData] = useState({
+  // Fetch all books
+  const fetchBooks = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await api.get("/library", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setBooks(res.data.data);
+    } catch (err) {
+      console.log("Fetch Error:", err.response?.data || err.message);
+    }
+  };
+
+  // Handle Add / Update
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const token = localStorage.getItem("token");
+
+      if (edit) {
+        await api.put(`/library/${edit}`, formData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setEdit(null);
+      } else {
+        await api.post("/library", formData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      await fetchBooks();
+
+      setFormData({
         title: "",
         author: "",
-        price: ""
-    })
-
-    // Runs once when the component loads — fetches books from the backend
-    useEffect(() => {
-        fetchBooks()
-    }, [])
-
-    // Fetches all books from the backend and saves them in the `books` state
-    const fetchBooks = async () => {
-        try {
-            const res = await api.get("/library");
-            setBooks(res.data.data); // Update the books list with the response data
-        } catch (err) {
-            console.log("Fetch Error ", err)
-        }
+        price: "",
+      });
+    } catch (err) {
+      console.log("Creation Error:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Something went wrong");
     }
+  };
 
-    // Handles form submission for both adding a new book and updating an existing one
-    const handleSubmit = async (e) => {
-        e.preventDefault(); // Prevent the page from refreshing on form submit
+  // Handle Input Change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-        try {
-            if (edit) {
-                // If we're in edit mode, send a PUT request to update the book by its ID
-                await api.put(`/library/${edit}`, formData);
-                setEdit(null) // Exit edit mode after updating
-            } else {
-                // If we're in add mode, send a POST request to create a new book
-                await api.post("/library", formData);
-            }
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-            await fetchBooks(); // Refresh the book list to show the latest data
-        } catch (err) {
-            console.log("creation error", err);
-            alert("book not created , some error");
-        }
+  // Handle Edit
+  const handleEdit = (book) => {
+    setFormData({
+      title: book.title,
+      author: book.author,
+      price: book.price,
+    });
 
-        // Clear the form fields after submission
-        setFormData({
-            title: "",
-            author: "",
-            price: ""
-        })
+    setEdit(book._id);
+  };
+
+  // Handle Delete — ✅ Fixed: was `}};` now correctly `};`
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await api.delete(`/library/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.data.success) {
+        fetchBooks();
+      }
+    } catch (err) {
+      console.log("Delete Error:", err.response?.data || err.message);
     }
+  };
 
-    // Updates formData state whenever the user types in any input field
-    const handleChange = (e) => {
-        const { name, value } = e.target; // Get the input's name and current value
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-10 px-4">
+      <div className="max-w-6xl mx-auto">
 
-        // Update only the field that changed, keep the rest as-is
-        setFormData(prev => ({
-            ...prev, [name]: value
-        }))
-    }
+        {/* Page Title */}
+        <h1 className="text-4xl font-bold text-white mb-10 text-center tracking-wide">
+          📚 Library Dashboard
+        </h1>
 
-    // Pre-fills the form with the selected book's data and switches to edit mode
-    const handleEdit = (book) => {
-        setFormData({
-            title: book.title,
-            author: book.author,
-            price: book.price,
-        });
-        setEdit(book._id); // Save the book's ID so we know which one to update
-    }
+        {/* Form Card */}
+        <div className="bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl rounded-2xl p-8 mb-12">
+          <h2 className="text-2xl font-semibold text-white mb-6 text-center">
+            {edit ? "Update Book" : "Add New Book"}
+          </h2>
 
-    // Deletes a book by its ID after sending a DELETE request to the backend
-    const handleDelete = async (id) => {
-        try {
-            const res = await api.delete(`/library/${id}`);
+          <form onSubmit={handleSubmit} className="grid md:grid-cols-3 gap-6">
+            <input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              placeholder="Book Title"
+              className="bg-white/20 text-white placeholder-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
 
-            if (res.data.success) {
-                alert("Succcesfully Deleted");
-                fetchBooks(); // Refresh the list after deletion
-            }
-        } catch (err) {
-            console.log("Delete : something went wrong")
-        }
-    }
+            <input
+              type="text"
+              name="author"
+              value={formData.author}
+              onChange={handleChange}
+              placeholder="Author Name"
+              className="bg-white/20 text-white placeholder-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
 
-    return (
-        <>
-            <div className="library-container">
+            <input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              placeholder="Price"
+              className="bg-white/20 text-white placeholder-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
 
-                {/* ── Form: used for both adding and editing a book ── */}
-                <form onSubmit={handleSubmit} className="library-form">
-
-                    <h2>Add Book</h2>
-
-                    <label>Title</label>
-                    <input
-                        type="text"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleChange}
-                        placeholder="Enter book title"
-                        required
-                    />
-
-                    <label>Author</label>
-                    <input
-                        type="text"
-                        name="author"
-                        value={formData.author}
-                        onChange={handleChange}
-                        placeholder="Enter author name"
-                        required
-                    />
-
-                    <label>Price</label>
-                    <input
-                        type="text"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleChange}
-                        placeholder="Enter price"
-                        required
-                    />
-
-                    {/* Show "Update" button in edit mode, "Submit" button in add mode */}
-                    {edit ? <button type="submit">Update</button> : <button type="submit">Submit</button>}
-
-                </form>
-
-                <h2 className="books-heading">Books</h2>
-
-                {/* ── Book cards: one card rendered for each book in the list ── */}
-                <div className="books-container">
-                    {books.map((book) => (
-                        <div key={book._id} className="book-card">
-                            <h3>{book.title || "No Title"}</h3>
-                            <p><strong>Author:</strong> {book.author}</p>
-                            <p><strong>Price:</strong> ₹ {book.price}</p>
-
-                            {/* Clicking Edit fills the form with this book's data */}
-                            <button onClick={() => handleEdit(book)}>Edit</button>
-
-                            {/* Clicking Delete removes this book from the database */}
-                            <button onClick={() => handleDelete(book._id)}>Delete</button>
-                        </div>
-                    ))}
-                </div>
-
+            <div className="md:col-span-3 text-center">
+              <button
+                type="submit"
+                className={`px-8 py-3 rounded-xl text-white font-semibold shadow-lg transition duration-300 transform hover:scale-105 ${
+                  edit
+                    ? "bg-yellow-500 hover:bg-yellow-600"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {edit ? "Update Book" : "Add Book"}
+              </button>
             </div>
-        </>
-    )
+          </form>
+        </div>
+
+        {/* Books Section */}
+        <h2 className="text-2xl font-semibold text-white mb-6">
+          All Books
+        </h2>
+
+        {books.length === 0 ? (
+          <div className="text-center text-gray-400 mt-10">
+            No books available. Add your first book 🚀
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {books.map((book) => (
+              <div
+                key={book._id}
+                className="bg-white rounded-2xl shadow-xl p-6 transition transform hover:-translate-y-2 hover:shadow-2xl duration-300"
+              >
+                <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  {book.title}
+                </h3>
+
+                <p className="text-gray-600 mb-1">
+                  <span className="font-semibold">Author:</span> {book.author}
+                </p>
+
+                <p className="text-gray-600 mb-4">
+                  <span className="font-semibold">Price:</span> ₹ {book.price}
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleEdit(book)}
+                    className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-white py-2 rounded-lg font-medium transition"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(book._id)}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

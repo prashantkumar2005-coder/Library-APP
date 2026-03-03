@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import api from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 export default function Store() {
     const [store, setStore] = useState([]);
-
+const navigate = useNavigate();
     useEffect(() => {
         fetchStore()
     }, [])
@@ -12,9 +13,18 @@ export default function Store() {
         try {
             const response = await api.get("/store");
             console.log(response);
-            setStore(response.data.data)
+            // setStore(response.data.data)
         } catch (err) {
-            console.log("Store error:", err)
+            const {response} = err;
+            console.log(response)
+            if(response.status === 401){
+                alert(err.response.data.message);
+                localStorage.clear()
+                navigate("/")
+            }
+            
+            alert(err.response.data.message);
+            console.log("fetchstore err " , err.response.data.message)
         }
     }
 

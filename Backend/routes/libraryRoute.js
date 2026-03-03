@@ -1,7 +1,7 @@
 const express = require("express");
-const router = express.Router(); // Creates a mini express app to define routes separately
+const router = express.Router();
 const Book = require("../model/book.js");
-const authVerify = require('../auth/authVerify.js'); // Middleware that checks if user is logged in via JWT
+const authVerify = require('../auth/authVerify.js');
 const User = require('../model/user.js');
 
 
@@ -9,7 +9,7 @@ const User = require('../model/user.js');
 // Fetches all books from the database and returns them
 router.get("/library", async (req, res) => {
     try {
-        const book = await Book.find(); // Get all books from MongoDB
+        const book = await Book.find();
         res.status(200).json({
             success: true,
             data: book
@@ -24,16 +24,12 @@ router.get("/library", async (req, res) => {
 
 
 // ── GET /store ────────────────────────────────────────────────────────────────
-// Returns the logged-in user's details
-// authVerify runs first — it checks the token and attaches user info to req.user
 router.get('/store', authVerify, async (req, res) => {
     try {
-        const user = req.user;      // User info extracted from the JWT token by authVerify
+        const user = req.user;
         const { email } = user;
 
-        // Find the user in the database using their email
         const userDetails = await User.findOne({ email: email })
-        console.log(userDetails);
 
         return res.status(200).json({
             success: true,
@@ -44,19 +40,19 @@ router.get('/store', authVerify, async (req, res) => {
         console.log("store route err", err);
         return res.status(500).json({
             success: false,
-            message: "Internal sever error" || err.name, // ⚠️ || doesn't work here — "Internal server error" is always truthy so err.name is never used. Fix: err.message || "Internal server error"
+            message: err.message || "Internal server error", // ✏️ EDITED: flipped the order so err.message is used first
         });
     }
-}); 1
-k    
+// ✏️ EDITED: removed the stray "1" that was here — it was a syntax error
+});
+
 
 // ── POST /library ─────────────────────────────────────────────────────────────
-// Creates a new book and saves it to the database
-router.post("/library", async (req, res) => {
+// ✏️ EDITED: added authVerify — only logged in users can create books
+router.post("/library", authVerify, async (req, res) => {
     try {
-        const { title, author, price } = req.body; // Extract book details from the request body
+        const { title, author, price } = req.body;
 
-        // Validation: return an error if any required field is missing
         if (!title || !author || !price) {
             return res.status(400).json({
                 success: false,
@@ -64,14 +60,14 @@ router.post("/library", async (req, res) => {
             });
         }
 
-        // Create a new Book instance with the provided data
         let newBook = new Book({
             title,
             author,
-            price
+            price,
+            createdBy: req.user._id // ✏️ EDITED: saving who created the book using req.user from authVerify
         });
 
-        await newBook.save(); // Save the book to MongoDB
+        await newBook.save();
 
         res.status(200).json({
             success: true,
@@ -90,28 +86,20 @@ router.post("/library", async (req, res) => {
 
 
 // ── PUT /library/:id ──────────────────────────────────────────────────────────
-// Updates an existing book's details using its ID
-// :id is a URL parameter — e.g. PUT /library/64abc123...
-router.put("/library/:id", async (req, res) => {
+// ✏️ EDITED: entire route added — update an existing book (protected)
+router.put("/library/:id", authVerify, async (req, res) => {
     try {
-        const { id } = req.params;                    // Extract book ID from the URL
-        const { title, author, price } = req.body;    // Extract updated fields from request body
-        console.log(req.body);
+        const { id } = req.params;
+        const { title, author, price, description, image } = req.body;
 
-        // Find the book by ID and update it with new data
-        // { new: true } makes MongoDB return the updated document instead of the old one
         const updatedBook = await Book.findByIdAndUpdate(
             id,
-            { title, author, price },
+            { title, author, price, description, image },
             { new: true }
         );
 
-        // If no book was found with that ID, return an error
         if (!updatedBook) {
-            return res.status(400).json({  // ⚠️ should be 404 (Not Found) since the book doesn't exist
-                success: false,
-                message: "Invalid Id"
-            });
+            return res.status(404).json({ success: false, message: "Book not found" });
         }
 
         res.status(200).json({
@@ -121,38 +109,60 @@ router.put("/library/:id", async (req, res) => {
         });
 
     } catch (err) {
-        console.log("update error", err);
-        res.status(500).json({
-            success: false,
-            message: "Update failed"
-        });
+        console.log("update error", err.message);
+        res.status(500).json({ success: false, message: "Update failed" });
     }
 });
 
 
 // ── DELETE /library/:id ───────────────────────────────────────────────────────
-// Deletes a book from the database using its ID
-router.delete('/library/:id', async (req, res) => {
-    const { id } = req.params; // Extract book ID from the URL
-    console.log(id);
+// ✏️ EDITED: entire route added — delete a book (protected)
+router.delete("/library/:id", authVerify, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await Book.findByIdAndDelete(id);
 
-    // ⚠️ findOneAndDelete(id) is wrong — it treats the id as a filter object, not an ID
-    // Fix: use Book.findByIdAndDelete(id) instead
-    const result = await Book.findByIdAndDelete(id);  // ⚠️ no try/catch — if this throws, the server will crash
-    console.log(result);
+        if (!result) {
+            return res.status(404).json({ success: false, message: "Book not found" });
+        }
 
-    if (result) {
-        return res.status(200).json({
-            success: true,
-            message: "deleted succesfully"  // ⚠️ typo: "succesfully" → "successfully"
-        });
+        res.status(200).json({ success: true, message: "Book deleted successfully" });
+
+    } catch (err) {
+        console.log("delete error", err.message);
+        res.status(500).json({ success: false, message: "Delete failed" });
     }
-
-    // If result is null, the book wasn't found — 404 is more accurate than 500 here
-    res.status(500).json({  // ⚠️ should be 404 (Not Found), not 500 (Server Error)
-        success: false,
-        message: "invalid id"
-    });
 });
 
-module.exports = router; // Export the router so it can be used in the main server file
+
+// ── POST /library/:id/buy ─────────────────────────────────────────────────────
+// ✏️ EDITED: entire route added — buy a book, saves it to user's purchasedBooks (protected)
+router.post("/library/:id/buy", authVerify, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const book = await Book.findById(id);
+        if (!book) {
+            return res.status(404).json({ success: false, message: "Book not found" });
+        }
+
+        const user = await User.findById(req.user._id);
+
+        // check if already purchased
+        if (user.purchasedBooks.includes(id)) {
+            return res.status(400).json({ success: false, message: "Book already purchased" });
+        }
+
+        user.purchasedBooks.push(id);
+        await user.save();
+
+        res.status(200).json({ success: true, message: "Book purchased successfully" });
+
+    } catch (err) {
+        console.log("buy error", err.message);
+        res.status(500).json({ success: false, message: "Purchase failed" });
+    }
+});
+
+
+module.exports = router;

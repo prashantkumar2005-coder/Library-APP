@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import api from '../../services/api'
+import { Link, NavLink } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 export const Login = () => {
+    const navigate = useNavigate();
     const [login, setLogin] = useState({
         email: "",
         password: ""
@@ -17,8 +20,9 @@ export const Login = () => {
                     email: "",
                     password: ""
                 })
-                localStorage.setItem("token", response.data.token)
+                localStorage.setItem("token", response.data.token) // store token in frontend 
                 alert(`welcome ${login.email}`)
+                navigate("/")
             } else {
                 alert(response.data.message)
             }
@@ -54,6 +58,8 @@ export const Login = () => {
                             <input className="field-input" type="password" name="password" value={login.password} onChange={handleChange} placeholder="••••••••" required />
                         </div>
                         <button className="submit-btn" type="submit">Continue</button>
+                        <Link to="/" >Back</Link>
+
                     </form>
                 </div>
             </div>
