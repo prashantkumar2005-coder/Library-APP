@@ -19,5 +19,9 @@ app.use("/auth", userRoute);
 // ✅ Correct connection + server start
 connectDB().then(() => {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  try {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  } catch (err) {
+    alert(err.response?.data?.message || "Server is down. Please try again.");
+  }
 });

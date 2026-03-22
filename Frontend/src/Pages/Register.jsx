@@ -83,7 +83,7 @@ export default function Register() {
             </div>
             <p className="text-center text-stone-500 text-sm">
               Already have an account?{" "}
-              <Link to="/Login" className="text-amber-400 hover:text-amber-300 font-semibold transition">Sign in</Link>
+              <Link to="/login" className="text-amber-400 hover:text-amber-300 font-semibold transition">Sign in</Link>
             </p>
             <Link to="/" className="text-center text-xs font-mono tracking-widest uppercase text-stone-700 hover:text-stone-400 transition">
               Back to Home
